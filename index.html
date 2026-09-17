@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="歌单播放器">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>本地视频歌单播放器</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0f1115;
+    color: #e8eaed;
+    min-height: 100vh;
+    padding: 16px;
+    max-width: 640px;
+    margin: 0 auto;
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h1::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: #4f8cff;
+    border-radius: 2px;
+  }
+  .install-bar {
+    display: none;
+    background: #1e2a44;
+    border: 1px solid #4f8cff;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #fff;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .install-bar button {
+    background: #4f8cff;
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: #4f8cff; color: #fff; }
+  .btn-secondary { background: #262a33; color: #e8eaed; }
+  .btn-danger { background: #3a2530; color: #ff7a90; }
+  input[type="file"] { display: none; }
+  .video-wrap {
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  video {
+    width: 100%;
+    display: block;
+    max-height: 50vh;
+  }
+  .now-playing {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #9aa0a6;
+    background: #1a1d24;
+    border-bottom: 1px solid #2a2e38;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .now-playing b { color: #4f8cff; }
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #6b7280;
+    background: #1a1d24;
+  }
+  .mode-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .mode-row .btn { flex: none; padding: 6px 12px; font-size: 12px; border-radius: 20px; }
+  .btn.active { background: #4f8cff; color: #fff; }
+  .list-header {
+    font-size: 13px;
+    color: #9aa0a6;
+    margin: 16px 0 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  ul { list-style: none; }
+  li {
+    padding: 12px;
+    background: #1a1d24;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  li:active { background: #262a33; }
+  li.playing {
+    background: #1e2a44;
+    border-left: 3px solid #4f8cff;
+  }
+  li .idx {
+    width: 24px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  li.playing .idx { color: #4f8cff; }
+  li .name {
+    flex: 1;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  li .del {
+    color: #6b7280;
+    font-size: 18px;
+    padding: 4px 8px;
+    flex-shrink: 0;
+  }
+  li.playing .name { color: #fff; font-weight: 500; }
+  .empty {
+    text-align: center;
+    color: #6b7280;
+    padding: 40px 16px;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .tip {
+    margin-top: 16px;
+    padding: 10px 12px;
+    background: #1a1d24;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.7;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #262a33;
+    border-radius: 10px;
+    font-size: 11px;
+    color: #9aa0a6;
+  }
+  .sw-status {
+    font-size: 11px;
+    color: #4ade80;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>本地视频歌单播放器</h1>
+
+<div class="install-bar" id="installBar">
+  <span>安装到手机桌面，像APP一样使用</span>
+  <button id="installBtn">安装</button>
+</div>
+
+<div class="toolbar">
+  <label class="btn btn-primary" for="fileInput">+ 添加录屏视频</label>
+  <button class="btn btn-danger" id="clearBtn">清空歌单</button>
+</div>
+
+<input type="file" id="fileInput" accept="video/*" multiple>
+
+<div class="mode-row">
+  <button class="btn btn-secondary active" data-mode="loop">列表循环</button>
+  <button class="btn btn-secondary" data-mode="single">单曲循环</button>
+  <button class="btn btn-secondary" data-mode="off">播完即停</button>
+</div>
+
+<div class="video-wrap">
+  <div class="now-playing" id="npText">未播放</div>
+  <video id="video" controls playsinline webkit-playsinline></video>
+  <div class="meta">
+    <span id="countText">0 首</span>
+    <span id="timeText">00:00 / 00:00</span>
+  </div>
+</div>
+
+<div class="list-header">
+  <span>播放列表</span>
+  <span class="badge" id="orderBadge">顺序播放</span>
+</div>
+<ul id="list"></ul>
+
+<div class="empty" id="emptyTip">
+  点击上方「添加录屏视频」，从相册多选你录屏的歌曲视频<br>
+  播完自动切下一首，列表循环播放
+</div>
+
+<div class="tip">
+  · 视频仅在你手机本地浏览器播放，不会上传到网络<br>
+  · 三种播放模式：**列表循环 / 单曲循环 / 播完即停**，顶部按钮切换<br>
+  · 每首歌可单独删除，也可一键清空歌单<br>
+  · 实时显示当前播放进度和总时长<br>
+  · 刷新或关闭页面后歌单会清空，需重新选择视频<br>
+  · 正在播放的歌曲高亮显示，点击列表任意歌曲可跳转<br>
+  · 可以多次点「添加视频」往歌单里追加更多视频<br>  
+  · 推荐用 Chrome / Edge / Safari 打开，勿用微信内置浏览器<br>
+  · 录屏内容仅限个人欣赏，请勿对外传播<br>
+  · 蒲公行bingsimsim.com.cn版权所有
+</div>
+
+<div class="sw-status" id="swStatus">Service Worker 加载中...</div>
+
+<script>
+const video = document.getElementById('video');
+const fileInput = document.getElementById('fileInput');
+const listEl = document.getElementById('list');
+const npText = document.getElementById('npText');
+const countText = document.getElementById('countText');
+const timeText = document.getElementById('timeText');
+const emptyTip = document.getElementById('emptyTip');
+const orderBadge = document.getElementById('orderBadge');
+const clearBtn = document.getElementById('clearBtn');
+const installBar = document.getElementById('installBar');
+const installBtn = document.getElementById('installBtn');
+const swStatus = document.getElementById('swStatus');
+
+let playlist = [];
+let current = 0;
+let mode = 'loop';
+let deferredPrompt = null;
+
+// ===== PWA 安装逻辑 =====
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBar.style.display = 'flex';
+});
+
+installBtn.onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  installBar.style.display = 'none';
+};
+
+window.addEventListener('appinstalled', () => {
+  installBar.style.display = 'none';
+  swStatus.textContent = 'PWA 已安装到桌面 ✓';
+});
+
+// ===== Service Worker 注册 =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        swStatus.textContent = '离线缓存已就绪 ✓ 可离线打开本页面';
+      })
+      .catch(err => {
+        swStatus.textContent = '离线缓存未启用（需通过 http/https 访问）';
+      });
+  });
+} else {
+  swStatus.textContent = '当前浏览器不支持离线缓存';
+}
+
+// ===== 播放器逻辑 =====
+fileInput.onchange = e => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  const isFirst = playlist.length === 0;
+  playlist = playlist.concat(files);
+  if (isFirst) play(0);
+  else renderList();
+  fileInput.value = '';
+};
+
+function renderList() {
+  listEl.innerHTML = '';
+  playlist.forEach((f, i) => {
+    const li = document.createElement('li');
+    if (i === current) li.classList.add('playing');
+    const idx = document.createElement('span');
+    idx.className = 'idx';
+    idx.textContent = i + 1;
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = f.name;
+    const del = document.createElement('span');
+    del.className = 'del';
+    del.textContent = '×';
+    del.onclick = (ev) => { ev.stopPropagation(); removeItem(i); };
+    li.appendChild(idx);
+    li.appendChild(name);
+    li.appendChild(del);
+    li.onclick = () => play(i);
+    listEl.appendChild(li);
+  });
+  countText.textContent = playlist.length + ' 首';
+  emptyTip.style.display = playlist.length ? 'none' : 'block';
+}
+
+function removeItem(i) {
+  playlist.splice(i, 1);
+  if (playlist.length === 0) {
+    video.removeAttribute('src');
+    video.load();
+    npText.innerHTML = '未播放';
+    timeText.textContent = '00:00 / 00:00';
+    current = 0;
+  } else if (i === current) {
+    play(Math.min(current, playlist.length - 1));
+  } else {
+    renderList();
+  }
+}
+
+function play(idx) {
+  if (!playlist.length) return;
+  current = idx;
+  video.src = URL.createObjectURL(playlist[idx]);
+  video.play().catch(()=>{});
+  npText.innerHTML = '正在播放 <b>' + (idx+1) + '</b> / ' + playlist[idx].name;
+  renderList();
+}
+
+video.onended = () => {
+  if (mode === 'single') { video.currentTime = 0; video.play(); return; }
+  if (mode === 'off') return;
+  current++;
+  if (current >= playlist.length) current = 0;
+  play(current);
+};
+
+video.ontimeupdate = () => {
+  const fmt = s => {
+    s = Math.floor(s || 0);
+    return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+  };
+  timeText.textContent = fmt(video.currentTime) + ' / ' + fmt(video.duration);
+};
+
+document.querySelectorAll('.mode-row .btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.mode-row .btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    orderBadge.textContent = btn.textContent;
+  };
+});
+
+clearBtn.onclick = () => {
+  if (!playlist.length) return;
+  if (!confirm('确定清空歌单？')) return;
+  playlist = [];
+  current = 0;
+  video.removeAttribute('src');
+  video.load();
+  npText.innerHTML = '未播放';
+  timeText.textContent = '00:00 / 00:00';
+  renderList();
+};
+
+renderList();
+</script>
+
+</body>
+</html>
